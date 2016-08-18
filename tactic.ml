@@ -68,9 +68,41 @@ let rec ap t = function
      fold [] g ps
 
 
-let ( ** ) t1 t2 =
-  fun gl -> ap t2 (ap t1 (Goal gl))
-    
+let rec aps ts = function
+  | Failure msg -> Failure msg
+  | Goal gl ->
+     begin
+       match ts with
+       | [t] -> t gl
+       | _ -> fail "expected one tactic"
+     end
+  | Branch (ps, g) ->
+     let rec fold qs g ps ts =
+       match ps, ts with
+       | [], [] -> Branch (qs, g)
+       | [], _::_ -> fail "too many tactics"
+       | _::_, [] -> fail "too few tactics"
+       | p :: ps, t :: ts ->
+          begin
+            match ap t p with
+            | Failure msg -> Failure msg
+            | Goal gl -> Goal gl
+            | Branch (ps', f) ->
+               let n = List.length ps' in
+               let g lst = 
+                 let lst1, lst2 = split_list n lst in
+                 g (f lst1 :: lst2)
+               in
+               fold (ps' @ qs) g ps ts
+          end
+     in
+     fold [] g ps ts
+
+
+let ( ** ) t1 t2 gl = ap t2 (ap t1 (Goal gl))
+
+let ( ^^ ) t1 t2s gl = aps t2s (ap t1 (Goal gl))
+      
 let rec assumption (gamma, a) = 
   let rec find = function
     | [] -> fail "cannot find the assumption"
