@@ -18,4 +18,12 @@ let g = ([("H1", formula {|A -> B|} );
           ("H2", formula {| B |} )],
          formula {| A /\ B /\ A |}) ;;
 
+Tactic.theorem (formula {| A -> B -> A |}) (intros ** assumption) ;;
+
 Tactic.theorem (formula {| A -> B -> A /\ B |}) (intros ** split ** assumption) ;;
+
+Tactic.theorem (formula {| A /\ B -> B /\ A |})
+               (intro "H" **
+                destruct "H" "H1" "H2" **
+                split ** assumption) ;;
+                        

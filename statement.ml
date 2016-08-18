@@ -3,6 +3,10 @@ type t =
 
 exception Error
 
+let to_string (Statement (gamma, a)) =
+  String.concat ", " (List.map (fun (h,a) -> h ^ ":" ^ Formula.to_string a) gamma) ^ 
+  " ⊢ " ^ Formula.to_string a
+
 let check b =
   if b then () else raise Error
 
@@ -37,7 +41,9 @@ let hypothesis h gamma =
   Statement (gamma, lookup h gamma)
 
 let cut h (Statement (gamma, a)) (Statement (delta, b)) =
-  check (lookup h delta = a) ;
+  let c, eta = extract h delta in
+  check (equal_context gamma eta) ;
+  check (c = a) ;
   Statement (gamma, b)
 
 let true_intro gamma = 
@@ -72,7 +78,3 @@ let weaken h b (Statement (gamma, a)) =
   if List.mem_assoc h gamma
   then raise Error
   else Statement ((h, b) :: gamma, a)
-
-let to_string (Statement (gamma, a)) =
-  String.concat ", " (List.map (fun (h,a) -> h ^ ":" ^ Formula.to_string a) gamma) ^ 
-  " ⊢ " ^ Formula.to_string a

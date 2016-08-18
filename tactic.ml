@@ -9,13 +9,24 @@ type proof =
 
 let fail msg = Failure msg
 
-type tactic = goal -> proof
+let extract h ctx =
+  let rec fold delta = function
+    | [] -> None
+    | (h',a) :: gamma when h = h' -> Some (a, delta @ gamma)
+    | g :: gamma -> fold (g :: delta) gamma
+  in
+  fold [] ctx
+
+let rec lookup h = function
+  | [] -> None
+  | (h',a) :: gamma when h' = h -> Some a
+  | _ :: gamma -> lookup h gamma
 
 let success s = 
   Branch ([], (function [] -> s | _ -> assert false))
 
 let string_of_goal (gamma, a) =
-  String.concat "\n" (List.map (fun (h,b) -> h ^ " : " ^ Formula.to_string b) (List.rev gamma)) ^
+  String.concat "\n" (List.map (fun (h,b) -> h ^ " : " ^ Formula.to_string b) gamma) ^
   "\n-------------------\n" ^
   Formula.to_string a
 
@@ -34,7 +45,7 @@ let split_list n lst =
   in
   split [] lst n
 
-let rec ap (t : tactic) = function
+let rec ap t = function
   | Failure msg -> Failure msg
   | Goal gl -> t gl
   | Branch (ps, g) ->
@@ -57,25 +68,20 @@ let rec ap (t : tactic) = function
      fold [] g ps
 
 
-let ( ** ) t1 t2 : tactic =
+let ( ** ) t1 t2 =
   fun gl -> ap t2 (ap t1 (Goal gl))
     
-let find p =
-  let rec fnd = function
-    | [] -> None
-    | (h, x) :: xs when p h x -> Some (h, x)
-    | _ :: xs -> fnd xs
+let rec assumption (gamma, a) = 
+  let rec find = function
+    | [] -> fail "cannot find the assumption"
+    | (h, b) :: _ when b = a -> success (Statement.hypothesis h gamma)
+    | _ :: delta -> find delta
   in
-  fnd
-
-let assumption (gamma, a) =
-  match find (fun _ b -> b = a) gamma with
-  | Some (h, _) -> success (Statement.hypothesis h gamma)
-  | None -> fail "cannot find the assumption"
+  find gamma
 
 let exact h (gamma, a) =
-  match find (fun h' _ -> h' = h) gamma with
-  | Some (h, b) when b = a -> success (Statement.hypothesis h gamma)
+  match lookup h gamma with
+  | Some b when b = a -> success (Statement.hypothesis h gamma)
   | Some _ -> fail "hypothesis mismatch"
   | None -> fail "no such hypothesis"
        
@@ -100,17 +106,9 @@ let split (gamma, a) =
            | lst -> raise InternalTacticError))
   | _ -> fail "not a conjunction"
 
-let extract p lst =
-  let rec extr = function
-  | [] -> (None, [])
-  | x :: xs when p x -> (Some x, xs)
-  | x :: xs -> let (y, ys) = extr xs in (y, x :: xs)
-  in
-  extr lst
-
 let apply h (gamma, a) =
-  match find (fun h' _ -> h = h') gamma with
-  | Some (h, Formula.Imply (b, c)) when c = a ->
+  match lookup h gamma with
+  | Some (Formula.Imply (b, c)) when c = a ->
      let s1 = Statement.hypothesis h gamma in
      Branch (
          [Goal (gamma, b)],
@@ -121,15 +119,16 @@ let apply h (gamma, a) =
   | Some _ -> fail "invalid apply"
   | None -> fail "no such hypothesis"
 
-let attempt (t : tactic) (gl : goal) =
+let attempt t gl =
   match t gl with
   | Failure _ -> Goal gl
   | (Goal _ | Branch _) as gl -> gl
 
-let rec repeat (t : tactic) (gl : goal) =
+let rec repeat t gl =
   match t gl with
   | Failure _ -> Goal gl
-  | (Goal _ | Branch _) as gl -> ap (repeat t) gl
+  | Goal _ as gl -> gl
+  | Branch (prfs, f) -> Branch (List.map (ap (repeat t)) prfs, f)
 
 let intros = 
   let intr =
@@ -139,19 +138,29 @@ let intros =
   repeat intr
 
 let destruct h h1 h2 (gamma, a) =
-  match find (fun h' _ -> h' = h) gamma with
+  match extract h gamma with
   | None -> fail "no such hypothesis"
-  | Some (h, Formula.And (b, c)) -> 
-     Branch ([Goal ((h1, b) :: (h2, c) :: gamma, a)],
+  | Some (Formula.And (b, c), delta) -> 
+     Branch ([Goal ((h1, b) :: (h2, c) :: delta, a)],
            (function
+             | [s] -> (* h1:b, h2:c, delta |- a *)
+                let s = Statement.weaken h (Formula.And (b, c)) s in (* h:b/\c, h1:b, h2:c, delta |- a *)
+                let t = Statement.hypothesis h gamma in (* h: b /\ c, delta |- b /\ c *)
+                let t1 = Statement.and_elim1 t (* h : b /\ c, delta |- b *)
+                and t2 = Statement.weaken h1 b (Statement.and_elim2 t) in (* h1:b, h:b/\c, delta |- c *)
+                Statement.cut h1 t1 (Statement.cut h2 t2 s) 
              | _ -> raise InternalTacticError
-           )
-)
+           ))
   | Some _ -> fail "cannot destruct"
 
-let theorem frm (t : tactic)  = 
+let theorem frm t  = 
   match ap t (Goal ([], frm)) with
   | Branch ([], f) ->
-     print_endline ("Theorem: " ^ Statement.to_string (f []))
+     begin
+       match f [] with
+       | Statement.Statement ([], frm') as s when frm = frm' ->
+          print_endline ("Theorem: " ^ Statement.to_string s)
+       | s -> print_endline ("We proved " ^ Statement.to_string s ^ " instead of " ^ Formula.to_string frm)
+     end
   | prf -> print_endline (string_of_proof prf)
 
