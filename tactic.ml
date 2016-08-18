@@ -45,59 +45,44 @@ let split_list n lst =
   in
   split [] lst n
 
+let branch ps g =
+  let rec fold = function
+  | [] -> [], (function [] -> [] | _::_ -> raise InternalTacticError)
+  | (Branch ([], h)) :: ps ->
+     let s = h [] in
+     let ps, r = fold ps in
+     ps, (fun lst -> s :: r lst)
+  | p :: ps ->
+     let ps, r = fold ps in
+     (p :: ps), (function (s :: lst) -> s :: (r lst) | [] -> raise InternalTacticError)
+  in
+  let ps, r = fold ps in
+  Branch (ps, fun lst -> g (r lst))
+
 let rec ap t = function
   | Failure msg -> Failure msg
   | Goal gl -> t gl
-  | Branch (ps, g) ->
-     let rec fold qs g = function
-       | [] -> Branch (qs, g)
-       | p :: ps ->
-          begin
-            match ap t p with
-            | Failure msg -> Failure msg
-            | Goal gl -> Goal gl
-            | Branch (ps', f) ->
-               let n = List.length ps' in
-               let g lst = 
-                 let lst1, lst2 = split_list n lst in
-                 g (f lst1 :: lst2)
-               in
-               fold (ps' @ qs) g ps
-          end
-     in
-     fold [] g ps
+  | Branch (ps, g) -> branch (List.map (ap t) ps) g
 
+let aps ts gl =
+  let rec aps = function
+    | ts, Failure msg -> ts, Failure msg
+    | t::ts , Goal gl -> ts, t gl
+    | [], Goal gl -> [], fail "too few tactics"
+    | ts, Branch (ps, g) ->
+       let rec fold ts qs = function
+         | [] -> ts, branch (List.rev qs) g
+         | p :: ps ->
+            let ts, q = aps (ts, p) in
+            fold ts (q :: qs) ps
+       in
+       fold ts [] ps
+  in
+  match aps (ts, gl) with
+  | [], p -> p
+  | _::_, _ -> fail "too many tactics"
 
-let rec aps ts = function
-  | Failure msg -> Failure msg
-  | Goal gl ->
-     begin
-       match ts with
-       | [t] -> t gl
-       | _ -> fail "expected one tactic"
-     end
-  | Branch (ps, g) ->
-     let rec fold qs g ps ts =
-       match ps, ts with
-       | [], [] -> Branch (qs, g)
-       | [], _::_ -> fail "too many tactics"
-       | _::_, [] -> fail "too few tactics"
-       | p :: ps, t :: ts ->
-          begin
-            match ap t p with
-            | Failure msg -> Failure msg
-            | Goal gl -> Goal gl
-            | Branch (ps', f) ->
-               let n = List.length ps' in
-               let g lst = 
-                 let lst1, lst2 = split_list n lst in
-                 g (f lst1 :: lst2)
-               in
-               fold (ps' @ qs) g ps ts
-          end
-     in
-     fold [] g ps ts
-
+let idtac gl = Goal gl
 
 let ( ** ) t1 t2 gl = ap t2 (ap t1 (Goal gl))
 
@@ -139,16 +124,15 @@ let split (gamma, a) =
   | _ -> fail "not a conjunction"
 
 let apply h (gamma, a) =
+  let rec collect bs = function
+    | c when c = a ->
+       Branch (List.rev bs,
+               List.fold_left (fun s t -> Statement.imply_elim s t) (Statement.hypothesis h gamma))
+    | Formula.Imply (b, c) -> collect (Goal (gamma, b) :: bs) c
+    | _ -> fail "cannot apply"
+  in
   match lookup h gamma with
-  | Some (Formula.Imply (b, c)) when c = a ->
-     let s1 = Statement.hypothesis h gamma in
-     Branch (
-         [Goal (gamma, b)],
-         (function
-           | [s2] -> Statement.imply_elim s1 s2
-           | _ -> assert false)
-       )
-  | Some _ -> fail "invalid apply"
+  | Some c -> collect [] c
   | None -> fail "no such hypothesis"
 
 let attempt t gl =
@@ -172,12 +156,12 @@ let rec first ts gl =
       | (Goal _ | Branch _) as prf -> prf
     end 
   
-let intros gl = 
+let intros = 
   let intr =
     let k = ref 0 in
     fun gl -> incr k ; intro ("H" ^ string_of_int !k) gl
   in
-  repeat intr gl
+  repeat intr
 
 let destruct h h1 h2 (gamma, a) =
   match extract h gamma with

@@ -3,9 +3,11 @@ type t =
 
 exception Error
 
+let string_of_context gamma =
+  String.concat ", " (List.map (fun (h,a) -> h ^ ":" ^ Formula.to_string a) gamma)
+
 let to_string (Statement (gamma, a)) =
-  String.concat ", " (List.map (fun (h,a) -> h ^ ":" ^ Formula.to_string a) gamma) ^ 
-  " ⊢ " ^ Formula.to_string a
+   string_of_context gamma ^ " ⊢ " ^ Formula.to_string a
 
 let check b =
   if b then () else raise Error
