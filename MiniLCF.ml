@@ -4,7 +4,7 @@ open Tactic
 
 let formula str = Parser.formula Lexer.token (Lexing.from_string str)
 
-let p = hypothesis 0 [And (Atom "A", Atom "B")] ;;
+let p = hypothesis "H" [("H", formula {| A /\ B |})] ;;
 
 let q = and_elim2 p ;;
 
@@ -18,4 +18,4 @@ let g = ([("H1", formula {|A -> B|} );
           ("H2", formula {| B |} )],
          formula {| A /\ B /\ A |}) ;;
 
-Tactic.theorem (formula {| A -> B -> A /\ B |}) (intro "H" ** intro "G" ** assumption) ;;
+Tactic.theorem (formula {| A -> B -> A /\ B |}) (intros ** split ** assumption) ;;
