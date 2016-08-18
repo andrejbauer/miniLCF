@@ -26,8 +26,12 @@ Tactic.theorem (formula {| A /\ B -> B /\ A |})
                (intro "H" **
                 destruct "H" "H1" "H2" **
                 split ** assumption) ;;
-                        
+
 Tactic.theorem (formula {| (A -> A) /\ (C /\ D -> C) |})
                (split ^^
                 [intros ** assumption ;
                  intro "H" ** destruct "H" "H1" "H2" ** exact "H1"]) ;;
+
+let auto = repeat (first [intros; split; assumption]) ;;
+                        
+Tactic.theorem (formula {| A -> (B -> A) /\ (C /\ D -> D /\ A) |}) auto ;;

@@ -162,12 +162,22 @@ let rec repeat t gl =
   | Goal _ as gl -> gl
   | Branch (prfs, f) -> Branch (List.map (ap (repeat t)) prfs, f)
 
-let intros = 
+let rec first ts gl =
+  match ts with
+  | [] -> fail "no applicable tactic"
+  | t :: ts ->
+    begin
+      match t gl with
+      | Failure _ -> first ts gl
+      | (Goal _ | Branch _) as prf -> prf
+    end 
+  
+let intros gl = 
   let intr =
     let k = ref 0 in
     fun gl -> incr k ; intro ("H" ^ string_of_int !k) gl
   in
-  repeat intr
+  repeat intr gl
 
 let destruct h h1 h2 (gamma, a) =
   match extract h gamma with
