@@ -1,4 +1,4 @@
-module Make (K : Logic.KERNEL) : Logic.KERNEL =
+module Make (K : Lcf.KERNEL) : Lcf.KERNEL =
 struct
   type ty = Formula.t
 
@@ -19,8 +19,8 @@ exception Error
 let consequent (Derivation (_, s)) = K.consequent s
 let hypotheses (Derivation (_, s)) = K.hypotheses s
 
-let hypothesis h gamma =
-  Derivation (Var h, K.hypothesis h gamma)
+let hypo h gamma =
+  Derivation (Var h, K.hypo h gamma)
 
 let cut h (Derivation (e1, s1)) (Derivation (e2, s2)) =
   Derivation (Let (h, e1, e2), K.cut h s1 s2)

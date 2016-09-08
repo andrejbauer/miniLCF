@@ -7,11 +7,11 @@ let hypotheses (gamma, _) = gamma
 let consequent (_, a) = a
 
 let print_context gamma ppf =
-  Print.sequence
-    "," 
-    (fun (h,a) ppf -> Format.fprintf ppf "%s: @[<h>%t@]" h (Formula.print a))
-    gamma
+  Format.pp_print_list
+    ~pp_sep:(fun ppf () -> Format.fprintf ppf ",@ " )
+    (fun ppf (h,a) -> Format.fprintf ppf "%s: @[<h>%t@]" h (Formula.print a))
     ppf
+    gamma
 
 let print (gamma, a) ppf =
   Format.fprintf ppf "%t@ ⊢ %t" (print_context gamma) (Formula.print a)
@@ -45,7 +45,7 @@ let rec equal_context ctx1 ctx2 =
   in
   contains ctx1 ctx2 && contains ctx2 ctx1
 
-let hypothesis h gamma =
+let hypo h gamma =
   check (is_context gamma) ;
   (gamma, lookup h gamma)
 

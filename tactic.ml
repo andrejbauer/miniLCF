@@ -1,4 +1,4 @@
-module Make (K : Logic.KERNEL) =
+module Make (K : Lcf.KERNEL) =
 struct
 
   type goal = (string * Formula.t) list * Formula.t
@@ -30,9 +30,11 @@ struct
 
   let print_goal (gamma, a) ppf =
     Format.fprintf ppf "@[<v>%t@]@\n--------------------@\n%t"
-                   (Print.sequence
-                      "\n" 
-                      (fun (h,b) ppf-> Format.fprintf ppf "%s: @[<h>%t@]" h (Formula.print b))
+                   (fun ppf ->
+                    Format.pp_print_list
+                      ~pp_sep:(fun ppf () -> Format.fprintf ppf "@\n") 
+                      (fun ppf (h,b) -> Format.fprintf ppf "%s: @[<h>%t@]" h (Formula.print b))
+                      ppf
                       gamma)
                    (Formula.print a)
 
@@ -105,14 +107,14 @@ struct
   let rec assumption (gamma, a) = 
     let rec find = function
       | [] -> fail "cannot find the assumption"
-      | (h, b) :: _ when b = a -> success (K.hypothesis h gamma)
+      | (h, b) :: _ when b = a -> success (K.hypo h gamma)
       | _ :: delta -> find delta
     in
     find gamma
 
   let exact h (gamma, a) =
     match lookup h gamma with
-    | Some b when b = a -> success (K.hypothesis h gamma)
+    | Some b when b = a -> success (K.hypo h gamma)
     | Some _ -> fail "hypothesis mismatch"
     | None -> fail "no such hypothesis"
                    
@@ -141,7 +143,7 @@ struct
     let rec collect bs = function
       | c when c = a ->
          Branch (List.rev bs,
-                 List.fold_left (fun s t -> K.imply_elim s t) (K.hypothesis h gamma))
+                 List.fold_left (fun s t -> K.imply_elim s t) (K.hypo h gamma))
       | Formula.Imply (b, c) -> collect (Goal (gamma, b) :: bs) c
       | _ -> fail "cannot apply"
     in
@@ -185,7 +187,7 @@ struct
                (function
                  | [s] -> (* h1:b, h2:c, delta |- a *)
                     let s = K.weaken h (Formula.And (b, c)) s in (* h:b/\c, h1:b, h2:c, delta |- a *)
-                    let t = K.hypothesis h gamma in (* h: b /\ c, delta |- b /\ c *)
+                    let t = K.hypo h gamma in (* h: b /\ c, delta |- b /\ c *)
                     let t1 = K.and_elim1 t (* h : b /\ c, delta |- b *)
                     and t2 = K.weaken h1 b (K.and_elim2 t) in (* h1:b, h:b/\c, delta |- c *)
                     K.cut h1 t1 (K.cut h2 t2 s) 

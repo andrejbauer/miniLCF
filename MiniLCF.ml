@@ -1,8 +1,8 @@
 let formula str = Parser.formula Lexer.token (Lexing.from_string str)
 
-let p = Statement.hypothesis "H" [("H", formula {| A /\ B |})] ;;
+let p = PropKernel.hypo "H" [("H", formula {| A /\ B |})] ;;
 
-let q = Statement.and_elim2 p ;;
+let q = PropKernel.and_elim2 p ;;
 
 (* print_endline (Statement.to_string q) ;; *)
 
@@ -14,7 +14,7 @@ let g = ([("H1", formula {|A -> B|} );
           ("H2", formula {| B |} )],
          formula {| A /\ B /\ A |}) ;;
 
-module T = Tactic.Make (Reify.Make (Statement))
+module T = Tactic.Make (Reify.Make (PropKernel))
 
 open T ;;
 

@@ -1,9 +1,10 @@
 type t =
-  | Atom of string
-  | True
-  | And of t * t
-  | Imply of t * t
+  | Atom of string    (** atomic proposition *)
+  | True              (** truth *)
+  | And of t * t      (** conjunction *)
+  | Imply of t * t    (** implication *)
 
+(** [print frml ppf] pretty-prints formula [frml] using the printing formatter [ppf]. *)
 let print =
   let rec simple frml ppf =
     match frml with
