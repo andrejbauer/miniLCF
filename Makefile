@@ -1,4 +1,7 @@
-default: MiniLCF
+default: miniLCF
 
-MiniLCF:
-	ocamlbuild MiniLCF.native
+miniLCF:
+	ocamlbuild miniLCF.native
+
+clean:
+	ocamlbuild -clean
