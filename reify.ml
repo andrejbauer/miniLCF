@@ -1,4 +1,4 @@
-module Make (K : Logic.KERNEL) =
+module Make (K : Logic.KERNEL) : Logic.KERNEL =
 struct
   type ty = Formula.t
 

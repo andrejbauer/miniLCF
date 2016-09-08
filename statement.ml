@@ -1,13 +1,20 @@
-type t =
-  | Statement of (string * Formula.t) list * Formula.t
+type t = (string * Formula.t) list * Formula.t
 
 exception Error
 
-let string_of_context gamma =
-  String.concat ", " (List.map (fun (h,a) -> h ^ ":" ^ Formula.to_string a) gamma)
+let hypotheses (gamma, _) = gamma
 
-let to_string (Statement (gamma, a)) =
-   string_of_context gamma ^ " ⊢ " ^ Formula.to_string a
+let consequent (_, a) = a
+
+let print_context gamma ppf =
+  Print.sequence
+    "," 
+    (fun (h,a) ppf -> Format.fprintf ppf "%s: @[<h>%t@]" h (Formula.print a))
+    gamma
+    ppf
+
+let print (gamma, a) ppf =
+  Format.fprintf ppf "%t@ ⊢ %t" (print_context gamma) (Formula.print a)
 
 let check b =
   if b then () else raise Error
@@ -40,43 +47,43 @@ let rec equal_context ctx1 ctx2 =
 
 let hypothesis h gamma =
   check (is_context gamma) ;
-  Statement (gamma, lookup h gamma)
+  (gamma, lookup h gamma)
 
-let cut h (Statement (gamma, a)) (Statement (delta, b)) =
+let cut h (gamma, a) (delta, b) =
   let c, eta = extract h delta in
   check (equal_context gamma eta) ;
   check (c = a) ;
-  Statement (gamma, b)
+  (gamma, b)
 
 let true_intro gamma = 
   check (is_context gamma) ;
-  Statement (gamma, Formula.True)
+  (gamma, Formula.True)
 
-let and_intro (Statement (gamma, a)) (Statement (delta, b)) =
+let and_intro (gamma, a) (delta, b) =
   check (equal_context gamma delta) ;
-  Statement (gamma, Formula.And (a, b))
+  (gamma, Formula.And (a, b))
 
-let and_elim1 (Statement (gamma, a)) =
+let and_elim1 (gamma, a) =
   match a with
-  | Formula.And (b, _) -> Statement (gamma, b)
+  | Formula.And (b, _) -> (gamma, b)
   | _ -> raise Error
 
-let and_elim2 (Statement (gamma, a)) =
+let and_elim2 (gamma, a) =
   match a with
-  | Formula.And (_, c) -> Statement (gamma, c)
+  | Formula.And (_, c) -> (gamma, c)
   | _ -> raise Error
 
-let imply_intro h (Statement (gamma, a)) =
+let imply_intro h (gamma, a) =
   let b, delta = extract h gamma in
-  Statement (delta, Formula.Imply (b, a))
+  (delta, Formula.Imply (b, a))
 
-let imply_elim (Statement (gamma, a)) (Statement (delta, b)) =
+let imply_elim (gamma, a) (delta, b) =
   check (equal_context gamma delta) ;
   match a with
-  | Formula.Imply (c, d) when c = b -> Statement (gamma, d)
+  | Formula.Imply (c, d) when c = b -> (gamma, d)
   | _ -> raise Error
 
-let weaken h b (Statement (gamma, a)) =
+let weaken h b (gamma, a) =
   if List.mem_assoc h gamma
   then raise Error
-  else Statement ((h, b) :: gamma, a)
+  else ((h, b) :: gamma, a)

@@ -1,12 +1,8 @@
-open Formula
-open Statement
-open Tactic
-
 let formula str = Parser.formula Lexer.token (Lexing.from_string str)
 
-let p = hypothesis "H" [("H", formula {| A /\ B |})] ;;
+let p = Statement.hypothesis "H" [("H", formula {| A /\ B |})] ;;
 
-let q = and_elim2 p ;;
+let q = Statement.and_elim2 p ;;
 
 (* print_endline (Statement.to_string q) ;; *)
 
@@ -18,25 +14,29 @@ let g = ([("H1", formula {|A -> B|} );
           ("H2", formula {| B |} )],
          formula {| A /\ B /\ A |}) ;;
 
-Tactic.theorem (formula {| A -> B -> A |}) (intros ** assumption) ;;
+module T = Tactic.Make (Reify.Make (Statement))
 
-Tactic.theorem (formula {| A -> B -> A /\ B |}) (intros ** split ** assumption) ;;
+open T ;;
 
-Tactic.theorem (formula {| A /\ B -> B /\ A |})
+theorem (formula {| A -> B -> A |}) (intros ** assumption) ;;
+
+theorem (formula {| A -> B -> A /\ B |}) (intros ** split ** assumption) ;;
+
+theorem (formula {| A /\ B -> B /\ A |})
                (intro "H" **
                 destruct "H" "H1" "H2" **
                 split ** assumption) ;;
 
-Tactic.theorem (formula {| (A -> A) /\ (C /\ D -> C) |})
+theorem (formula {| (A -> A) /\ (C /\ D -> C) |})
                (split ^^
                 [intros ** assumption ;
                  intro "H" ** destruct "H" "H1" "H2" ** exact "H1"]) ;;
 
 let auto = repeat (intros ** repeat split) ** attempt assumption ;;
                         
-Tactic.theorem (formula {| X -> A -> X /\ ((C -> A) /\ (B -> X)) |}) auto ;;
+theorem (formula {| X -> A -> X /\ ((C -> A) /\ (B -> X)) |}) auto ;;
 
-Tactic.theorem (formula {| (A -> B -> C) -> (A -> B) -> (A -> C) |})
+theorem (formula {| (A -> B -> C) -> (A -> B) -> (A -> C) |})
                (intro "J" **
                 intro "K" **
                 intro "L" **
