@@ -1,6 +1,6 @@
 let formula str = Parser.formula Lexer.token (Lexing.from_string str)
 
-let p = PropKernel.hypo "H" [("H", formula {| A /\ B |})] ;;
+let p = PropKernel.hypo "H" (Context.make [("H", formula {| A /\ B |})]) ;;
 
 let q = PropKernel.and_elim2 p ;;
 
@@ -14,7 +14,7 @@ let g = ([("H1", formula {|A -> B|} );
           ("H2", formula {| B |} )],
          formula {| A /\ B /\ A |}) ;;
 
-module T = Tactic.Make (Reify.Make (PropKernel))
+module T = Tactic.Make (Lcf.Entrust (PropKernel) (SizeKernel))
 
 open T ;;
 
@@ -42,3 +42,4 @@ theorem (formula {| (A -> B -> C) -> (A -> B) -> (A -> C) |})
                 intro "L" **
                 apply "J" ^^ [assumption; apply "K" ** assumption]) ;;
                         
+(* module S = Tactic.Make (SizeKernel) *)

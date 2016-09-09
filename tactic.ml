@@ -1,7 +1,7 @@
 module Make (K : Lcf.KERNEL) =
 struct
 
-  type goal = (string * Formula.t) list * Formula.t
+  type goal = Judgement.t
 
   exception InternalError of string
 
@@ -12,31 +12,10 @@ struct
 
   let fail msg = Failure msg
 
-  let extract h ctx =
-    let rec fold delta = function
-      | [] -> None
-      | (h',a) :: gamma when h = h' -> Some (a, delta @ gamma)
-      | g :: gamma -> fold (g :: delta) gamma
-    in
-    fold [] ctx
-
-  let rec lookup h = function
-    | [] -> None
-    | (h',a) :: gamma when h' = h -> Some a
-    | _ :: gamma -> lookup h gamma
-
   let success s = 
     Branch ([], (function [] -> s | _ -> assert false))
 
-  let print_goal (gamma, a) ppf =
-    Format.fprintf ppf "@[<v>%t@]@\n--------------------@\n%t"
-                   (fun ppf ->
-                    Format.pp_print_list
-                      ~pp_sep:(fun ppf () -> Format.fprintf ppf "@\n") 
-                      (fun ppf (h,b) -> Format.fprintf ppf "%s: @[<h>%t@]" h (Formula.print b))
-                      ppf
-                      gamma)
-                   (Formula.print a)
+  let print_goal = Judgement.print ~vertical:true
 
   let print_state prf ppf =
     let rec print ks prf ppf =
@@ -104,26 +83,21 @@ struct
 
   let ( ^^ ) t1 t2s gl = aps t2s (ap t1 (Goal gl))
                              
-  let rec assumption (gamma, a) = 
-    let rec find = function
-      | [] -> fail "cannot find the assumption"
-      | (h, b) :: _ when b = a -> success (K.hypo h gamma)
-      | _ :: delta -> find delta
-    in
-    find gamma
+  let rec assumption (ctx, a) =
+    match Context.find a ctx with
+    | None -> fail "cannot find the assumption"
+    | Some h -> success (K.hypo h ctx)
 
-  let exact h (gamma, a) =
-    match lookup h gamma with
-    | Some b when b = a -> success (K.hypo h gamma)
+  let exact h (ctx, a) =
+    match Context.lookup h ctx with
+    | Some b when b = a -> success (K.hypo h ctx)
     | Some _ -> fail "hypothesis mismatch"
     | None -> fail "no such hypothesis"
                    
-  let k = ref 0 
-
   let intro h (gamma, a) =
     match a with
     | Formula.Imply (b, c) ->
-       Branch ([Goal ((h, b) :: gamma, c)],
+       Branch ([Goal (Context.extend (h, b) gamma, c)],
                (function
                  | [s] -> K.imply_intro h s
                  | _ -> assert false))
@@ -139,15 +113,15 @@ struct
              | lst -> raise (InternalError "split")))
     | _ -> fail "not a conjunction"
 
-  let apply h (gamma, a) =
+  let apply h (ctx, a) =
     let rec collect bs = function
       | c when c = a ->
          Branch (List.rev bs,
-                 List.fold_left (fun s t -> K.imply_elim s t) (K.hypo h gamma))
-      | Formula.Imply (b, c) -> collect (Goal (gamma, b) :: bs) c
+                 List.fold_left (fun s t -> K.imply_elim s t) (K.hypo h ctx))
+      | Formula.Imply (b, c) -> collect (Goal (ctx, b) :: bs) c
       | _ -> fail "cannot apply"
     in
-    match lookup h gamma with
+    match Context.lookup h ctx with
     | Some c -> collect [] c
     | None -> fail "no such hypothesis"
 
@@ -180,10 +154,10 @@ struct
     repeat intr
 
   let destruct h h1 h2 (gamma, a) =
-    match extract h gamma with
+    match Context.extract h gamma with
     | None -> fail "no such hypothesis"
     | Some (Formula.And (b, c), delta) -> 
-       Branch ([Goal ((h1, b) :: (h2, c) :: delta, a)],
+       Branch ([Goal (Context.extend (h1, b) (Context.extend (h2, c) delta), a)],
                (function
                  | [s] -> (* h1:b, h2:c, delta |- a *)
                     let s = K.weaken h (Formula.And (b, c)) s in (* h:b/\c, h1:b, h2:c, delta |- a *)
@@ -196,13 +170,13 @@ struct
     | Some _ -> fail "cannot destruct"
 
   let theorem frml tctc = 
-    match ap tctc (Goal ([], frml)) with
+    match ap tctc (Goal (Context.empty, frml)) with
     | Branch ([], f) ->
       begin
         let s = f [] in
-        match K.hypotheses s, K.consequent s with
-        | ([], frml') when frml = frml' -> 
-           Format.printf "Theorem@ @[<h>%t@]@." (K.print s)
+        match K.context s, K.conclusion s with
+        | (ctx, frml') when Context.is_empty ctx && frml = frml' -> 
+           Format.printf "Theorem:@\n@[<hov>%t@]@." (K.print s)
         | _ -> raise (InternalError "theorem")
       end
     | prf -> Format.printf "Remaining goals:@\n%t" (print_state prf)
