@@ -14,7 +14,7 @@ let g = ([("H1", formula {|A -> B|} );
           ("H2", formula {| B |} )],
          formula {| A /\ B /\ A |}) ;;
 
-module MyTactics = Tactic.Make (Lcf.Apply (PropAsType) (PropKernel)) ;;
+module MyTactics = Tactic.Make (Lcf.Apply (SizeKernel) (PropKernel)) ;;
 open MyTactics ;;
 
 theorem (formula {| A -> B -> A |}) (intros ** assumption) ;;

@@ -1,2 +1,2 @@
-include Lcf.PREKERNEL with type t = int
+include Lcf.TRANSFORMATION with type t = int
 
