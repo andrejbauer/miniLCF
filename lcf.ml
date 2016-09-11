@@ -1,5 +1,5 @@
 (** The signature of a pre-kernel. *)
-module type PREKERNEL =
+module type TRANSFORMATION =
   sig
     (** The abstract type of judgments *)
     type t
@@ -98,10 +98,10 @@ module type PREKERNEL =
 
   end
 
-(** A kernel is a pre-kernel that operates with actual judgements. *)
+(** A kernel is a transformation from which we can actually extract the judgment. *)
 module type KERNEL =
 sig
-  include PREKERNEL
+  include TRANSFORMATION
 
   (** A judgment has the form 
         {v
@@ -125,86 +125,81 @@ sig
      derivable judgment can be represented as a value of type [t].
    *)
 
-  (** [conclusion jdg] gives the conclusion of judgement [jdg] *)
-  val conclusion : t -> Formula.t
-                          
-  (** [context jdg] gives the context of judgement [jdg] *)
-  val context : t -> Context.t
+  (** [conclusion x] gives the judgement encoded in [x]. *)
+  val judgement : t -> Judgement.t
 end
 
-module Entrust (Trusted : KERNEL) (K : PREKERNEL) : KERNEL with type t = Trusted.t * K.t =
+module Apply (F : TRANSFORMATION) (K : KERNEL) : KERNEL with type t = K.t * F.t =
 struct
-  type t = Trusted.t * K.t
+  type t = K.t * F.t
 
   exception Error
 
-  let conclusion (jdg, _) = Trusted.conclusion jdg
-
-  let context (jdg, _) = Trusted.context jdg
+  let judgement (jdg, _) = K.judgement jdg
 
   let hypo x ctx = 
     try
-      (Trusted.hypo x ctx, K.hypo x ctx)
+      (K.hypo x ctx, F.hypo x ctx)
     with
-    | Trusted.Error -> raise Error
     | K.Error -> raise Error
+    | F.Error -> raise Error
 
   let cut x (jdg1,d1) (jdg2,d2) =
     try
-      (Trusted.cut x jdg1 jdg2, K.cut x d1 d2)
+      (K.cut x jdg1 jdg2, F.cut x d1 d2)
     with
-    | Trusted.Error -> raise Error
     | K.Error -> raise Error
+    | F.Error -> raise Error
 
   let true_intro ctx =
     try
-      (Trusted.true_intro ctx, K.true_intro ctx)
+      (K.true_intro ctx, F.true_intro ctx)
     with
-    | Trusted.Error -> raise Error
     | K.Error -> raise Error
+    | F.Error -> raise Error
   
   let and_intro (jdg1,d1) (jdg2,d2) =
     try
-      (Trusted.and_intro jdg1 jdg2, K.and_intro d1 d2)
+      (K.and_intro jdg1 jdg2, F.and_intro d1 d2)
     with
-    | Trusted.Error -> raise Error
     | K.Error -> raise Error
+    | F.Error -> raise Error
 
   let and_elim1 (jdg, d) =
     try
-      (Trusted.and_elim1 jdg, K.and_elim1 d)
+      (K.and_elim1 jdg, F.and_elim1 d)
     with
-    | Trusted.Error -> raise Error
     | K.Error -> raise Error
+    | F.Error -> raise Error
 
   let and_elim2 (jdg, d) =
     try
-      (Trusted.and_elim2 jdg, K.and_elim2 d)
+      (K.and_elim2 jdg, F.and_elim2 d)
     with
-    | Trusted.Error -> raise Error
     | K.Error -> raise Error
+    | F.Error -> raise Error
 
   let imply_intro x (jdg,d) =
     try
-      (Trusted.imply_intro x jdg, K.imply_intro x d)
+      (K.imply_intro x jdg, F.imply_intro x d)
     with
-    | Trusted.Error -> raise Error
     | K.Error -> raise Error
+    | F.Error -> raise Error
 
   let imply_elim (jdg1,d1) (jdg2,d2) =
     try
-      (Trusted.imply_elim jdg1 jdg2, K.imply_elim d1 d2)
+      (K.imply_elim jdg1 jdg2, F.imply_elim d1 d2)
     with
-    | Trusted.Error -> raise Error
     | K.Error -> raise Error
+    | F.Error -> raise Error
 
   let weaken x a (jdg,d) =
     try
-      (Trusted.weaken x a jdg, K.weaken x a d)
+      (K.weaken x a jdg, F.weaken x a d)
     with
-    | Trusted.Error -> raise Error
     | K.Error -> raise Error
+    | F.Error -> raise Error
 
-  let print (jdg,d) ppf = Format.fprintf ppf "%t@\n%t" (Trusted.print jdg) (K.print d)
+  let print (jdg,d) ppf = Format.fprintf ppf "%t@\n%t" (K.print jdg) (F.print d)
 
 end

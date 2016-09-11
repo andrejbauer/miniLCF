@@ -6,6 +6,9 @@ type t
 
 exception Invalid_context 
 
+(** Fold over a context *)
+val fold : ('a -> string * Formula.t -> 'a) -> 'a -> t -> 'a
+
 (** The empty context *)
 val empty : t
 

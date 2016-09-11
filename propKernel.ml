@@ -2,9 +2,7 @@ type t = Judgement.t
 
 exception Error
 
-let context (gamma, _) = gamma
-
-let conclusion (_, a) = a
+let judgement (jdg : t) = jdg
 
 let print jdg ppf = Judgement.print jdg ppf
 

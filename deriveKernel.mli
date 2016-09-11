@@ -1,2 +1,2 @@
-include Lcf.KERNEL
+include Lcf.PREKERNEL
 

@@ -2,6 +2,8 @@ type t = (string * Formula.t) list
 
 exception Invalid_context 
 
+let fold = List.fold_left
+
 let empty = []
 
 let is_empty = function

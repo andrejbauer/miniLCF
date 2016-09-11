@@ -174,9 +174,9 @@ struct
     | Branch ([], f) ->
       begin
         let s = f [] in
-        match K.context s, K.conclusion s with
+        match K.judgement s with
         | (ctx, frml') when Context.is_empty ctx && frml = frml' -> 
-           Format.printf "Theorem:@\n@[<hov>%t@]@." (K.print s)
+           Format.printf "Theorem:@\n@[<hov>%t@]@\n@\n" (K.print s)
         | _ -> raise (InternalError "theorem")
       end
     | prf -> Format.printf "Remaining goals:@\n%t" (print_state prf)
